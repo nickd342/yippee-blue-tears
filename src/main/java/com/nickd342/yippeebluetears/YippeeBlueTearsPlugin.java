@@ -1,14 +1,13 @@
 package com.nickd342.yippeebluetears;
 
-import java.io.InputStream;
 import javax.inject.Inject;
-import javazoom.jl.player.Player;
 
 import net.runelite.api.Client;
 import net.runelite.api.DecorativeObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.DecorativeObjectSpawned;
 import net.runelite.api.gameval.ObjectID;
+import net.runelite.client.audio.AudioPlayer;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -24,6 +23,9 @@ public class YippeeBlueTearsPlugin extends Plugin
 {
     @Inject
     private Client client;
+
+    @Inject
+    private AudioPlayer audioPlayer;
 
     @Subscribe
     public void onDecorativeObjectSpawned(DecorativeObjectSpawned event)
@@ -50,27 +52,15 @@ public class YippeeBlueTearsPlugin extends Plugin
 
     private void playSound()
     {
-        // Decode/playback happens off the client thread - Player.play() blocks
-        // until playback finishes, and javax.sound has no MP3 decoder, so we
-        // use JLayer's pure-Java MP3 player instead.
-        Thread playbackThread = new Thread(() ->
+        // AudioPlayer.play() opens the clip and returns immediately - playback
+        // runs on the Java Sound system's own thread, not the client thread.
+        try
         {
-            try (InputStream audioStream = YippeeBlueTearsPlugin.class.getResourceAsStream("/tear.mp3"))
-            {
-                if (audioStream == null)
-                {
-                    log.warn("tear.mp3 not found on classpath");
-                    return;
-                }
-
-                new Player(audioStream).play();
-            }
-            catch (Exception e)
-            {
-                log.warn("Failed to play tear sound", e);
-            }
-        });
-        playbackThread.setDaemon(true);
-        playbackThread.start();
+            audioPlayer.play(YippeeBlueTearsPlugin.class, "/tear.wav", 0f);
+        }
+        catch (Exception e)
+        {
+            log.warn("Failed to play tear sound", e);
+        }
     }
 }

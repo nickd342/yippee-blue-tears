@@ -14,7 +14,7 @@ repositories {
 }
 
 def runeLiteVersion = 'latest.release'
-def pluginMainClass = 'com.example.ExamplePluginTest'
+def pluginMainClass = 'com.nickd342.yippeebluetears.YippeeBlueTearsPluginTest'
 
 dependencies {
 	compileOnly group: 'net.runelite', name:'client', version: runeLiteVersion
@@ -25,9 +25,11 @@ dependencies {
 	testImplementation 'junit:junit:4.12'
 	testImplementation group: 'net.runelite', name:'client', version: runeLiteVersion
 	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
+
+	implementation group: 'javazoom', name: 'jlayer', version: '1.0.1'
 }
 
-group = 'com.example'
+group = 'com.nickd342.yippeebluetears'
 
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
@@ -66,4 +68,11 @@ tasks.register('shadowJar', Jar) {
 	group = BasePlugin.BUILD_GROUP
 	archiveClassifier.set('shadow')
 	archiveFileName.set("${rootProject.name}-${project.version}-all.jar")
+}
+
+tasks.register('playSound', JavaExec) {
+	group = 'verification'
+	description = 'Plays tear.mp3 directly, no RuneLite client involved - just to check the sound file and JLayer work.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'com.nickd342.yippeebluetears.SoundTest'
 }

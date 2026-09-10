@@ -1,5 +1,6 @@
 package com.nickd342.yippeebluetears;
 
+import com.google.inject.Provides;
 import javax.inject.Inject;
 
 import net.runelite.api.Client;
@@ -8,6 +9,7 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.DecorativeObjectSpawned;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.audio.AudioPlayer;
+import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -26,6 +28,15 @@ public class YippeeBlueTearsPlugin extends Plugin
 
     @Inject
     private AudioPlayer audioPlayer;
+
+    @Inject
+    private YippeeBlueTearsConfig config;
+
+    @Provides
+    YippeeBlueTearsConfig provideConfig(ConfigManager configManager)
+    {
+        return configManager.getConfig(YippeeBlueTearsConfig.class);
+    }
 
     @Subscribe
     public void onDecorativeObjectSpawned(DecorativeObjectSpawned event)
@@ -52,11 +63,21 @@ public class YippeeBlueTearsPlugin extends Plugin
 
     private void playSound()
     {
+        int volume = config.volume();
+        if (volume <= 0)
+        {
+            return;
+        }
+
+        // AudioPlayer's gain is in decibels, not a linear scale, so convert the
+        // percentage to an attenuation: 100% is untouched, 50% is -6dB.
+        float gain = 20f * (float) Math.log10(volume / 100f);
+
         // AudioPlayer.play() opens the clip and returns immediately - playback
         // runs on the Java Sound system's own thread, not the client thread.
         try
         {
-            audioPlayer.play(YippeeBlueTearsPlugin.class, "/tear.wav", 0f);
+            audioPlayer.play(YippeeBlueTearsPlugin.class, "/tear.wav", gain);
         }
         catch (Exception e)
         {

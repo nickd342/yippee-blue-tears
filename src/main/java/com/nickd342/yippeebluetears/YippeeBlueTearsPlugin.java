@@ -17,8 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @PluginDescriptor(
     name = "Yippee Blue Tears",
-    description = "Plays a rewarding sound everytime you get a consecutive blue tear stream on a wall you're already collecting from",
-    tags = {"tears", "guthix", "sound"}
+    description = "Plays a rewarding sound everytime a consecutive blue tear stream appears on a wall you're already collecting from",
+    tags = {"tears", "guthix", "sound", "yippee"}
 )
 public class YippeeBlueTearsPlugin extends Plugin
 {

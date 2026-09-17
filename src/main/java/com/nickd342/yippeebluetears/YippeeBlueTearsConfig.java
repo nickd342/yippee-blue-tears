@@ -18,6 +18,6 @@ public interface YippeeBlueTearsConfig extends Config
     )
     default int volume()
     {
-        return 50;
+        return 10;
     }
 }

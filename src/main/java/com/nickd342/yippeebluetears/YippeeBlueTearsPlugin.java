@@ -5,8 +5,12 @@ import javax.inject.Inject;
 
 import net.runelite.api.Client;
 import net.runelite.api.DecorativeObject;
+import net.runelite.api.GameState;
+import net.runelite.api.MenuAction;
+import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.DecorativeObjectSpawned;
+import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.audio.AudioPlayer;
 import net.runelite.client.config.ConfigManager;
@@ -32,32 +36,157 @@ public class YippeeBlueTearsPlugin extends Plugin
     @Inject
     private YippeeBlueTearsConfig config;
 
+    // The wall tile the player last clicked to collect from, or null if they
+    // haven't clicked one or have since clicked something else in the world.
+    private WorldPoint targetWall;
+
+    // The last tears object id seen on the target wall. Used so a blue stream
+    // only counts once, even if the game re-sends the same object (e.g. on a
+    // scene reload).
+    private int targetWallId = -1;
+
     @Provides
     YippeeBlueTearsConfig provideConfig(ConfigManager configManager)
     {
         return configManager.getConfig(YippeeBlueTearsConfig.class);
     }
 
+    @Override
+    protected void shutDown()
+    {
+        clearTarget();
+    }
+
+    @Subscribe
+    public void onMenuOptionClicked(MenuOptionClicked event)
+    {
+        MenuAction action = event.getMenuAction();
+        switch (action)
+        {
+            case GAME_OBJECT_FIRST_OPTION:
+            case GAME_OBJECT_SECOND_OPTION:
+            case GAME_OBJECT_THIRD_OPTION:
+            case GAME_OBJECT_FOURTH_OPTION:
+            case GAME_OBJECT_FIFTH_OPTION:
+                if (isWeepingWall(event.getId()))
+                {
+                    targetWall = WorldPoint.fromScene(client.getTopLevelWorldView(),
+                        event.getParam0(), event.getParam1(), client.getTopLevelWorldView().getPlane());
+                    targetWallId = event.getId();
+                    log.debug("Collecting from wall {} (object {})", targetWall, targetWallId);
+                }
+                else
+                {
+                    clearTarget();
+                }
+                break;
+            case WALK:
+            case ITEM_USE_ON_GAME_OBJECT:
+            case WIDGET_TARGET_ON_GAME_OBJECT:
+            case ITEM_USE_ON_NPC:
+            case WIDGET_TARGET_ON_NPC:
+            case NPC_FIRST_OPTION:
+            case NPC_SECOND_OPTION:
+            case NPC_THIRD_OPTION:
+            case NPC_FOURTH_OPTION:
+            case NPC_FIFTH_OPTION:
+            case ITEM_USE_ON_PLAYER:
+            case WIDGET_TARGET_ON_PLAYER:
+            case PLAYER_FIRST_OPTION:
+            case PLAYER_SECOND_OPTION:
+            case PLAYER_THIRD_OPTION:
+            case PLAYER_FOURTH_OPTION:
+            case PLAYER_FIFTH_OPTION:
+            case PLAYER_SIXTH_OPTION:
+            case PLAYER_SEVENTH_OPTION:
+            case PLAYER_EIGHTH_OPTION:
+            case ITEM_USE_ON_GROUND_ITEM:
+            case WIDGET_TARGET_ON_GROUND_ITEM:
+            case GROUND_ITEM_FIRST_OPTION:
+            case GROUND_ITEM_SECOND_OPTION:
+            case GROUND_ITEM_THIRD_OPTION:
+            case GROUND_ITEM_FOURTH_OPTION:
+            case GROUND_ITEM_FIFTH_OPTION:
+                // Any other world interaction stops the player collecting.
+                clearTarget();
+                break;
+            default:
+                break;
+        }
+    }
+
     @Subscribe
     public void onDecorativeObjectSpawned(DecorativeObjectSpawned event)
     {
-        DecorativeObject decorativeObject = event.getDecorativeObject();
-        int id = decorativeObject.getId();
-
-        if (id != ObjectID.TOG_WEEPING_WALL_GOOD_R && id != ObjectID.TOG_WEEPING_WALL_GOOD_L)
+        if (targetWall == null)
         {
             return;
         }
 
-        WorldPoint tearLocation = WorldPoint.fromLocal(client, decorativeObject.getLocalLocation());
-        WorldPoint playerLocation = client.getLocalPlayer().getWorldLocation();
-
-        // The tears object sits on the wall's own tile, not the tile the
-        // player is standing on, so check adjacency instead of an exact
-        // match - i.e. the crack right next to you just turned blue.
-        if (tearLocation.distanceTo(playerLocation) <= 1)
+        DecorativeObject decorativeObject = event.getDecorativeObject();
+        int id = decorativeObject.getId();
+        if (!isWeepingWall(id) || !targetWall.equals(decorativeObject.getWorldLocation()))
         {
-            playSound();
+            return;
+        }
+
+        int previousId = targetWallId;
+        targetWallId = id;
+
+        // Only a change into blue counts - blue replacing blue is the same
+        // stream being re-sent, not a new one.
+        if (!isBlueTears(id) || isBlueTears(previousId))
+        {
+            return;
+        }
+
+        // Objects are re-sent while a scene loads; those aren't new streams.
+        if (client.getGameState() != GameState.LOGGED_IN)
+        {
+            return;
+        }
+
+        Player player = client.getLocalPlayer();
+        if (player == null)
+        {
+            return;
+        }
+
+        // The tears object sits on the wall's own tile, next to the player.
+        // If the player has wandered off they're no longer collecting.
+        if (targetWall.distanceTo(player.getWorldLocation()) > 1)
+        {
+            clearTarget();
+            return;
+        }
+
+        playSound();
+    }
+
+    private void clearTarget()
+    {
+        targetWall = null;
+        targetWallId = -1;
+    }
+
+    private static boolean isBlueTears(int id)
+    {
+        return id == ObjectID.TOG_WEEPING_WALL_GOOD_R || id == ObjectID.TOG_WEEPING_WALL_GOOD_L;
+    }
+
+    private static boolean isWeepingWall(int id)
+    {
+        switch (id)
+        {
+            case ObjectID.TOG_WEEPING_WALL_GOOD_R:
+            case ObjectID.TOG_WEEPING_WALL_BAD_R:
+            case ObjectID.TOG_WEEPING_WALL_OFF_R:
+            case ObjectID.TOG_WEEPING_WALL_GOOD_L:
+            case ObjectID.TOG_WEEPING_WALL_BAD_L:
+            case ObjectID.TOG_WEEPING_WALL_OFF_L:
+                return true;
+            default:
+                return false;
         }
     }
 

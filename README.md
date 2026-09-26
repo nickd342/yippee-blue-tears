@@ -16,5 +16,4 @@ RuneLite's built-in `AudioPlayer`.
 
 ## Settings
 
-**Volume** — how loud the sound plays, from 0 to 100%. Defaults to 50%.
-Set it to 0 to mute the plugin without disabling it.
+**Volume** - How loud the sound plays, from 0 to 100%. Defaults to 15%.

@@ -40,10 +40,7 @@ public class YippeeBlueTearsPlugin extends Plugin
     // haven't clicked one or have since clicked something else in the world.
     private WorldPoint targetWall;
 
-    // The last tears object id seen on the target wall. Used so a blue stream
-    // only counts once, even if the game re-sends the same object (e.g. on a
-    // scene reload).
-    private int targetWallId = -1;
+    private static final String COLLECT_OPTION = "Collect-from";
 
     @Provides
     YippeeBlueTearsConfig provideConfig(ConfigManager configManager)
@@ -68,12 +65,13 @@ public class YippeeBlueTearsPlugin extends Plugin
             case GAME_OBJECT_THIRD_OPTION:
             case GAME_OBJECT_FOURTH_OPTION:
             case GAME_OBJECT_FIFTH_OPTION:
-                if (isWeepingWall(event.getId()))
+                // The clickable wall isn't necessarily the tears decoration
+                // itself, so also accept the option text as a fallback.
+                if (isWeepingWall(event.getId()) || COLLECT_OPTION.equalsIgnoreCase(event.getMenuOption()))
                 {
                     targetWall = WorldPoint.fromScene(client.getTopLevelWorldView(),
                         event.getParam0(), event.getParam1(), client.getTopLevelWorldView().getPlane());
-                    targetWallId = event.getId();
-                    log.debug("Collecting from wall {} (object {})", targetWall, targetWallId);
+                    log.debug("Collecting from wall {} (object {})", targetWall, event.getId());
                 }
                 else
                 {
@@ -125,17 +123,13 @@ public class YippeeBlueTearsPlugin extends Plugin
 
         DecorativeObject decorativeObject = event.getDecorativeObject();
         int id = decorativeObject.getId();
-        if (!isWeepingWall(id) || !targetWall.equals(decorativeObject.getWorldLocation()))
+        if (!isBlueTears(id))
         {
             return;
         }
 
-        int previousId = targetWallId;
-        targetWallId = id;
-
-        // Only a change into blue counts - blue replacing blue is the same
-        // stream being re-sent, not a new one.
-        if (!isBlueTears(id) || isBlueTears(previousId))
+        log.debug("Blue tears spawned at {} (collecting from {})", decorativeObject.getWorldLocation(), targetWall);
+        if (!targetWall.equals(decorativeObject.getWorldLocation()))
         {
             return;
         }
@@ -153,10 +147,10 @@ public class YippeeBlueTearsPlugin extends Plugin
         }
 
         // The tears object sits on the wall's own tile, next to the player.
-        // If the player has wandered off they're no longer collecting.
+        // If the player isn't there yet (still walking over) they aren't
+        // collecting, so this stream doesn't count.
         if (targetWall.distanceTo(player.getWorldLocation()) > 1)
         {
-            clearTarget();
             return;
         }
 
@@ -166,7 +160,6 @@ public class YippeeBlueTearsPlugin extends Plugin
     private void clearTarget()
     {
         targetWall = null;
-        targetWallId = -1;
     }
 
     private static boolean isBlueTears(int id)
@@ -184,6 +177,9 @@ public class YippeeBlueTearsPlugin extends Plugin
             case ObjectID.TOG_WEEPING_WALL_GOOD_L:
             case ObjectID.TOG_WEEPING_WALL_BAD_L:
             case ObjectID.TOG_WEEPING_WALL_OFF_L:
+            case ObjectID.TOG_WEEPING_WALL_BACK_R:
+            case ObjectID.TOG_WEEPING_WALL_BACK_L:
+            case ObjectID.TOG_WEEPINGWALL:
                 return true;
             default:
                 return false;

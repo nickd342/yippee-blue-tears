@@ -9,7 +9,10 @@ import net.runelite.api.GameState;
 import net.runelite.api.MenuAction;
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.DecorativeObjectDespawned;
 import net.runelite.api.events.DecorativeObjectSpawned;
+import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.audio.AudioPlayer;
@@ -17,6 +20,7 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.ui.overlay.OverlayManager;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -36,6 +40,15 @@ public class YippeeBlueTearsPlugin extends Plugin
     @Inject
     private YippeeBlueTearsConfig config;
 
+    @Inject
+    private OverlayManager overlayManager;
+
+    @Inject
+    private StreamOrderOverlay streamOrderOverlay;
+
+    @Inject
+    private StreamOrderTracker streamOrderTracker;
+
     // The wall tile the player last clicked to collect from, or null if they
     // haven't clicked one or have since clicked something else in the world.
     private WorldPoint targetWall;
@@ -49,9 +62,29 @@ public class YippeeBlueTearsPlugin extends Plugin
     }
 
     @Override
+    protected void startUp()
+    {
+        overlayManager.add(streamOrderOverlay);
+    }
+
+    @Override
     protected void shutDown()
     {
+        overlayManager.remove(streamOrderOverlay);
         clearTarget();
+        streamOrderTracker.reset();
+    }
+
+    @Subscribe
+    public void onGameStateChanged(GameStateChanged event)
+    {
+        streamOrderTracker.onGameStateChanged(event.getGameState());
+    }
+
+    @Subscribe
+    public void onGameTick(GameTick event)
+    {
+        streamOrderTracker.onGameTick();
     }
 
     @Subscribe
@@ -116,12 +149,14 @@ public class YippeeBlueTearsPlugin extends Plugin
     @Subscribe
     public void onDecorativeObjectSpawned(DecorativeObjectSpawned event)
     {
+        DecorativeObject decorativeObject = event.getDecorativeObject();
+        streamOrderTracker.onSpawned(decorativeObject);
+
         if (targetWall == null)
         {
             return;
         }
 
-        DecorativeObject decorativeObject = event.getDecorativeObject();
         int id = decorativeObject.getId();
         if (!isBlueTears(id))
         {
@@ -155,6 +190,12 @@ public class YippeeBlueTearsPlugin extends Plugin
         }
 
         playSound();
+    }
+
+    @Subscribe
+    public void onDecorativeObjectDespawned(DecorativeObjectDespawned event)
+    {
+        streamOrderTracker.onDespawned(event.getDecorativeObject());
     }
 
     private void clearTarget()

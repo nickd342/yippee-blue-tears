@@ -2,6 +2,8 @@
 
 A RuneLite plugin that plays a rewarding sound when a blue tear stream starts on the same weeping wall crack you're collecting from. Also adds a toggleable counter to track the order the streams spawn.
 
+![Blue and green tear streams numbered 1-3 in spawn order](https://raw.githubusercontent.com/nickd342/yippee-blue-tears/master/docs/stream-order.png)
+
 ## Why
 
 Fun :)
